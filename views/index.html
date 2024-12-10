@@ -1,184 +1,46 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exercise Log</title>
-    <link rel="stylesheet" href="style.css" as="css">
-</head>
-<body>
-    <h1>Exercise Log Management</h1>
+<html>
+  <head>
+    <title>Exercise Tracker | freeCodeCamp</title>
+    <link rel="shortcut icon" href="https://cdn.freecodecamp.org/universal/favicons/favicon.ico"  type="image/x-icon" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet" type="text/css" />
+    <link href="style.css" rel="stylesheet" type="text/css" />
+  </head>
 
-    <div class="form-container">
+  <body>
+    <div class="container">
+      <h1>Exercise tracker</h1>
+      <form action="/api/users" method="post">
         <h2>Create a New User</h2>
-        <form id="createUserForm">
-            <input type="text" id="username" placeholder="Enter username" required>
-            <button type="submit">Create User</button>
-        </form>
-        <strong class="error-message" id="userError"></strong>
+        <p><code>POST /api/users</code></p>
+        <input id="uname" type="text" name="username" placeholder="username" />
+        <input type="submit" value="Submit" />
+      </form>
+      <form action="/api/users/:_id/exercises" id="exercise-form" method="post">
+        <h2>Add exercises</h2>
+        <p><code>POST /api/users/:_id/exercises</code></p>
+        <input id="uid" type="text" name=":_id" placeholder=":_id" />
+        <input id="desc" type="text" name="description" placeholder="description*" />
+        <input id="dur" type="text" name="duration" placeholder="duration* (mins.)" />
+        <input id="date" type="text" name="date" placeholder="date (yyyy-mm-dd)" />
+        <input type="submit" value="Submit" />
+      </form>
+      <p>
+        <strong>GET user's exercise log: </strong>
+        <code>GET /api/users/:_id/logs?[from][&amp;to][&amp;limit]</code>
+      </p>
+      <p><strong>[ ]</strong> = optional</p>
+      <p><strong>from, to</strong> = dates (yyyy-mm-dd); <strong>limit</strong> = number</p>
     </div>
-
-    <div class="form-container">
-        <h2>Add Exercise</h2>
-        <form id="addExerciseForm">
-            <input type="number" id="userId" placeholder="User ID" required>
-            <input type="text" id="description" placeholder="Exercise Description" required>
-            <input type="number" id="duration" placeholder="Duration (minutes)" required>
-            <input type="date" id="date">
-            <button type="submit">Add Exercise</button>
-        </form>
-    </div>
-
-    <div class="form-container">
-        <h2>View Exercise Log</h2>
-        <form id="viewLogForm">
-            <input type="number" id="logUserId" placeholder="User ID" required>
-            <input type="date" id="fromDate" placeholder="From Date">
-            <input type="date" id="toDate" placeholder="To Date">
-            <input type="number" id="logLimit" placeholder="Limit (number of logs)">
-            <button type="submit">View Log</button>
-        </form>
-    </div>
-
-    <div class="form-container">
-        <h2>Users</h2>
-        <button id="fetchUsersButton">Fetch Users</button>
-        <table id="usersTable">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div class="form-container">
-        <h2>Exercise Log</h2>
-        <table id="exerciseLogTable">
-            <thead>
-                <tr>
-                    <th>Exercise ID</th>
-                    <th>Description</th>
-                    <th>Duration</th>
-                    <th>Date</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
     <script>
-        const API_URL = './api/users';
+      const exerciseForm = document.getElementById("exercise-form");
 
-        // Function to create a new user
-        document.getElementById('createUserForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const username = document.getElementById('username').value;
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                }).then((response) => response.json())
-                .then((data) => {
-                    if (data.error) {
-                        document.getElementById('userError').textContent = data.error;
-                    } else {
-                        alert(`User ${data.username} created with ID: ${data.id}`);
-                        document.getElementById('createUserForm').reset();
-                    }
-                })
-            } catch (error) {
-                alert('Error creating user: ' + error.message);
-            }
-        });
+      exerciseForm.addEventListener("submit", () => {
+        const userId = document.getElementById("uid").value;
+        exerciseForm.action = `/api/users/${userId}/exercises`;
 
-        // Add New Exercise
-        document.getElementById('addExerciseForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const userId = document.getElementById('userId').value;
-            const description = document.getElementById('description').value;
-            const duration = document.getElementById('duration').value;
-            const date = document.getElementById('date').value || new Date().toISOString().split('T')[0];  // Default to today's date if not provided
-
-            try {
-                if(duration && duration > 0) {
-                    const response = await fetch(`${API_URL}/${userId}/exercises`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description, duration, date })
-                    }).then((response) => response.json())
-                    .then(async (data) => {
-                        if (data.error) {
-                            alert(data.error);
-                        } else {
-                            alert('Exercise Added: ' + data.description);
-                        }
-                    });
-                } else {
-                    alert('Enter valid duration');
-                }
-            } catch (error) {
-                alert('Error adding exercise: ' + error.message);
-            }
-        });
-
-        // To Display list of users
-        document.getElementById('fetchUsersButton').addEventListener('click', async () => {
-            try {
-                const response = await fetch(API_URL);
-                const users = await response.json();
-                const usersTable = document.getElementById('usersTable').getElementsByTagName('tbody')[0];
-                usersTable.innerHTML = '';
-                if (users && users.length) {
-                    users.forEach((user) => {
-                    const row = usersTable.insertRow();
-                    row.insertCell(0).innerText = user.id;
-                    row.insertCell(1).innerText = user.username;
-                    });
-                } else {
-                    alert('No Users Found');
-                }
-            } catch (error) {
-                alert('Error fetching users: ' + error.message);
-            }
-        });
-
-        // To Display list of exercises
-        document.getElementById('viewLogForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const userId = document.getElementById('logUserId').value;
-            const fromDate = document.getElementById('fromDate').value;
-            const toDate = document.getElementById('toDate').value;
-            const limit = document.getElementById('logLimit').value;
-
-            try {
-                const queryParams = new URLSearchParams();
-                if (fromDate) queryParams.append('from', fromDate);
-                if (toDate) queryParams.append('to', toDate);
-                if (limit) queryParams.append('limit', limit);
-
-                const response = await fetch(`${API_URL}/${userId}/logs?${queryParams.toString()}`);
-                const logs = await response.json();
-                const logTable = document.getElementById('exerciseLogTable').getElementsByTagName('tbody')[0];
-                logTable.innerHTML = '';
-                if(logs && logs.logs && logs.logs.length) {
-                    logs.logs.forEach((log) => {
-                        const row = logTable.insertRow();
-                        row.insertCell(0).innerText = log.id;
-                        row.insertCell(1).innerText = log.description;
-                        row.insertCell(2).innerText = log.duration;
-                        row.insertCell(3).innerText = log.date;
-                    });
-                } else {
-                    alert('No Logs Found');
-                }
-            } catch (error) {
-                alert('Error fetching logs: ' + error.message);
-            }
-        });
+        exerciseForm.submit();
+      });
     </script>
-</body>
+  </body>
 </html>

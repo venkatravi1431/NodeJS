@@ -70,27 +70,40 @@ async function getAllUsers(res) {
 }
 
 async function postExercise(userId, description, duration, date, res) {
-  if (!description || !duration || isNaN(duration)) {
-    return res.status(400).json({ error: 'Description and valid duration are required.' });
+
+  if (!description || description.trim().length === 0) {
+    return res.status(400).json({ error: 'Description is required.' });
   }
-  const exerciseDate = date || new Date().toISOString().split('T')[0];
+
+  const numericDuration = Number(duration);
+  if (!duration || isNaN(numericDuration) || numericDuration <= 0 || !Number.isInteger(numericDuration)) {
+    return res.status(400).json({ error: 'Duration is required and must be a positive number.' });
+  }
+
+  date = date ? date : new Date().toISOString().split('T')[0];
+  if (!validateDateFormat(date)) {
+    return res.status(400).json({ error: 'Date must be in the format YYYY-MM-DD.' });
+  }
+  if (!validateDate(date)) {
+    return res.status(400).json({ error: 'Date is invalid.' });
+  }
+  const exerciseDate = date;
 
   try {
     const db = await dbPromise;
     const existingUser = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
-    if(!existingUser) {
-      return res.status(400).json({ error: 'No User found for this id '+userId });
+    if (!existingUser) {
+      return res.status(400).json({ error: `No User found for this id ${userId}` });
     }
     const result = await db.run(
       'INSERT INTO exercises (user_id, description, duration, date) VALUES (?, ?, ?, ?)',
-      [userId, description, duration, exerciseDate]
+      [userId, description, numericDuration, exerciseDate]
     );
-    
     const createdExercise = {
-      userId: userId,
+      userId,
       exerciseId: result.lastID,
-      description: description,
-      duration: duration,
+      description,
+      duration: numericDuration,
       date: exerciseDate,
     };
     res.status(200).json(createdExercise);
@@ -110,20 +123,32 @@ async function getUserExerciseLog(userId, { from, to, limit }, res) {
     let dateFilter = '';
     const params = [userId];
     if (from) {
-      dateFilter += ' AND date >= ?';
-      params.push(from);
+      if(validateDateFormat(from) && validateDate(from)){
+        dateFilter += ' AND date >= ?';
+        params.push(from);
+      } else {
+        return res.status(400).json({ error: 'Enter a valid From date format should be YYYY-MM-DD.' });
+      }
     }
     if (to) {
-      dateFilter += ' AND date <= ?';
-      params.push(to);
+      if (validateDateFormat(to) && validateDate(to)){
+        dateFilter += ' AND date <= ?';
+        params.push(to);
+      } else {
+        return res.status(400).json({ error: 'Enter a valid To date format should be YYYY-MM-DD.' });
+      }
     }
     let limitClause = '';
     if (limit) {
+      const numericLimit = Number(limit);
+      if (!numericLimit || isNaN(numericLimit) || numericLimit <= 0 || !Number.isInteger(numericLimit)) {
+        return res.status(400).json({ error: 'Limit should be positive number' });
+      }
       limitClause = ' LIMIT ?';
-      params.push(limit);
+      params.push(numericLimit);
     }
     const exercises = await db.all(
-      `SELECT * FROM exercises WHERE user_id = ?${dateFilter} ORDER BY date DESC${limitClause}`,
+      `SELECT * FROM exercises WHERE user_id = ?${dateFilter} ORDER BY date ASC${limitClause}`,
       params
     );
     const userExerciseLog = {
@@ -141,6 +166,25 @@ async function getUserExerciseLog(userId, { from, to, limit }, res) {
   } catch (err) {
     console.error('Error fetching exercise log:', err);
     res.status(500).json({ error: 'Failed to retrieve exercise log' });
+  }
+}
+
+function validateDate(date) {
+  const parsedDate = new Date(date);
+  const isValidDate = parsedDate instanceof Date && !isNaN(parsedDate.getTime()) && parsedDate.toISOString().split('T')[0] === date;
+  if (!isValidDate) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+function validateDateFormat(date) {
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (date && !dateRegex.test(date)) {
+    return false;
+  } else {
+    return true;
   }
 }
 
